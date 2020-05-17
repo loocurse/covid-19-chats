@@ -20,8 +20,8 @@ num_of_announcements = announcements.groupby(by=[announcements.time.dt.year,anno
 num_of_announcements.plot(kind='bar')
 
 # Most frequent author
-talk_the_most = jcldrs.authors.value_counts()
-talk_the_most[:10]
+frequent_authors = jcldrs.authors.value_counts()
+frequent_authors[:10]
 
 # Identifying key messages
 
