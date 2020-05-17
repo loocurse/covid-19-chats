@@ -8,18 +8,6 @@ from datetime import datetime
 jcldrs = read_chat('jcleaders1.txt')
 ss = read_chat('ss.txt')
 
-rplc = {   '‪+65 8533 0067': 'Darren Ng',
-           '‪+65 9144 8875' : 'Garei',
-           '‪+65 9855 6180': 'Jess',
-           '‪+65 8328 4325' : 'Jamie',
-           '‪+65 9389 8933' : 'lows'
-           }
-
-# test encoding jcldrs.iloc[100][1]
-jcldrs['authors'] = jcldrs[['authors']].replace(rplc)
-
-jcldrs.describe()
-
 # Messages per month
 num_of_messages = jcldrs.groupby(by=[jcldrs.time.dt.year,jcldrs.time.dt.month])['messages'].size()
 num_of_messages.plot(kind='bar')
@@ -55,20 +43,22 @@ announcements['sequence'] = pd.Series([np.NaN] + seq)
 
 # Merge
 y = pd.merge(jcldrs,announcements,left_on='time',right_on='time', how='outer')
-y_1 = y.loc[(y['sequence'] < 0.01) | (y['sequence'].isnull())][['time','authors_x','messages_x','sequence']]
-len(y_1)
+
+# Filtering out chain messages
+no_chain = y.loc[(y['sequence'] < 0.01) | (y['sequence'].isnull())][['time', 'authors_x', 'messages_x', 'sequence']]
+len(no_chain)
 ## Finding clusters
 # Adding indicators to long messages
-indicator = []
-for i in range(len(y_1)):
-    indicator.append(len(y_1.iloc[i]['messages_x']))
+length_of_messages = []
+for i in range(len(no_chain)):
+    length_of_messages.append(len(no_chain.iloc[i]['messages_x']))
 
-y_1['long_msg'] = pd.Series(indicator).values
+no_chain['long_msg'] = pd.Series(length_of_messages).values
 
-y_1.sort_index()
-y_1.to_excel('y_1.xlsx')
+no_chain.sort_index()
+no_chain.to_excel('no_chain.xlsx')
 
-pd.Series(indicator).describe()
+pd.Series(length_of_messages).describe()
 
 class Chunk():
     def __init__(self, og='TEST', time=datetime(2012,6,3)):
@@ -89,7 +79,7 @@ class Chunk():
 last_chunk = Chunk()
 chunks = []
 
-for col, row in y_1.iterrows():
+for col, row in no_chain.iterrows():
     if len(row['messages_x']) > 200:
         chunks.append(last_chunk)
         last_chunk = Chunk(row['messages_x'], row['time'])
@@ -98,14 +88,16 @@ for col, row in y_1.iterrows():
         td = row['time'] - last_chunk.time
         last_chunk.time_lags.append(td.seconds)
 
-time = [x.time for x in chunks]
-message = [x.original for x in chunks]
-time_lags = [x.calculate_lags() for x in chunks]
-no_of_msgs = [len(x.messages) for x in chunks]
+response_time = {
+    'time' : [x.time for x in chunks],
+    'message' : [x.original for x in chunks],
+    'time_lags' : [x.calculate_lags() for x in chunks],
+    'no_of_msgs' : [len(x.messages) for x in chunks],
+}
 
-j = pd.DataFrame(list(zip(time,message,time_lags,no_of_msgs)), columns=['time','messages','time_lags','numofmsgs'])
-j_1 = j.loc[j.numofmsgs > 3]
-j_1.to_excel('j_1.xlsx')
+response_lag = pd.DataFrame.from_dict(response_time)
+response_lag = response_lag.loc[response_lag.numofmsgs > 3] # Filtering out messages with less than 3 responses
+response_lag.to_excel('response_lag.xlsx')
 
 
 
